@@ -13,7 +13,7 @@ export default function PracticePage({ profile, onReview, onStart }) {
   const weakTopics = Object.entries(topicCounts).sort((a, b) => b[1] - a[1])
 
   return (
-    <main className="page">
+    <main className="page practice-page">
       <section className="page-title">
         <span className="eyebrow">PRACTICE HUB</span>
         <h1>Review what needs another rep.</h1>
@@ -71,5 +71,4 @@ export default function PracticePage({ profile, onReview, onStart }) {
     </main>
   )
 }
-
 
