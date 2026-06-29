@@ -12,7 +12,7 @@ export const starterProfile = {
   preferredStudyTime: 'Evening',
   difficultyPreference: 'Standard',
   dailyReminderTime: '19:00',
-  theme: 'system',
+  theme: 'light',
   usernameLastChangedAt: '',
   notificationSettings: {
     dailyReminder: true,
