@@ -472,26 +472,8 @@ h1, h2, h3 { font-family: 'Manrope', sans-serif; margin-top: 0; letter-spacing: 
 .progress-panel, .achievement-panel { margin-top: 20px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-card); padding: 28px; box-shadow: 0 8px 24px rgb(54 47 39 / 5%); }
 .progress-panel h2, .achievement-panel h2 { margin: 0; font-size: 21px; }
 .practice-page {
-  --color-background: #f7f3ea;
-  --color-surface: #fffdf8;
-  --color-surface-soft: #fbf7ef;
-  --color-primary: #e8664a;
-  --color-primary-hover: #d9573c;
-  --color-text: #262626;
-  --color-text-muted: #6f6d68;
-  --color-border: #e4ddd0;
-  --color-success: #26886e;
-  --color-warning: #c69224;
-  --color-error: #b84a35;
-  --color-disabled-surface: #eee8dd;
-  --color-disabled-text: #8a847a;
-  --color-accent-purple: #7766b5;
-  --color-accent-gold: #c8952e;
   position: relative;
   color: var(--color-text);
-  background: var(--color-background);
-  box-shadow: 0 0 0 100vmax var(--color-background);
-  clip-path: inset(0 -100vmax);
 }
 .practice-page .page-title h1 {
   color: var(--color-text);
@@ -565,6 +547,50 @@ h1, h2, h3 { font-family: 'Manrope', sans-serif; margin-top: 0; letter-spacing: 
 .retake-row strong { color: var(--color-text); font-size: 13px; }
 .retake-row small, .empty-state { color: var(--color-text-muted); font-size: 12px; line-height: 1.45; }
 .empty-state { margin: 0; }
+
+:root[data-theme='dark'] .practice-page {
+  background: transparent;
+}
+
+:root[data-theme='dark'] .practice-hero {
+  border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+  background: linear-gradient(135deg, var(--color-surface), color-mix(in srgb, var(--color-primary) 9%, var(--color-surface-soft)));
+  box-shadow: var(--shadow-soft);
+}
+
+:root[data-theme='dark'] .practice-action-card,
+:root[data-theme='dark'] .practice-panel {
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-background));
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-soft);
+}
+
+:root[data-theme='dark'] .practice-action-card:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 38%, var(--color-border));
+}
+
+:root[data-theme='dark'] .practice-action-card.active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+}
+
+:root[data-theme='dark'] .practice-action-card:disabled,
+:root[data-theme='dark'] .practice-hero .primary-button:disabled {
+  background: var(--color-disabled-surface);
+  color: var(--color-disabled-text);
+  border-color: var(--color-border);
+}
+
+:root[data-theme='dark'] .practice-action-card:disabled svg,
+:root[data-theme='dark'] .practice-action-card:disabled strong,
+:root[data-theme='dark'] .practice-action-card:disabled small {
+  color: var(--color-disabled-text);
+}
+
+:root[data-theme='dark'] .topic-meter {
+  background: color-mix(in srgb, var(--color-border) 70%, var(--color-background));
+}
 .week-bars { height: 170px; display: grid; grid-template-columns: repeat(7, 1fr); align-items: end; gap: 16px; border-bottom: 1px solid var(--line); margin-top: 35px; padding: 0 15px; }
 .week-bars > div { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 9px; color: var(--muted); font-size: 10px; }
 .week-bars .bar { width: min(34px, 100%); min-height: 5px; border-radius: 6px 6px 0 0; background: #e5e1d7; }
