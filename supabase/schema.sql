@@ -1,8 +1,10 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null default 'SIE Candidate',
+  full_name text,
   username text unique,
   email text,
+  phone_number text,
   xp integer not null default 0,
   streak integer not null default 0,
   daily_goal integer not null default 1,
@@ -10,9 +12,13 @@ create table if not exists public.profiles (
   exam_date date,
   notifications boolean not null default true,
   public_profile boolean not null default false,
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
+alter table public.profiles add column if not exists full_name text;
+alter table public.profiles add column if not exists phone_number text;
+alter table public.profiles add column if not exists created_at timestamptz not null default now();
 alter table public.profiles add column if not exists onboarded boolean not null default false;
 alter table public.profiles add column if not exists total_questions integer not null default 0;
 alter table public.profiles add column if not exists correct_answers integer not null default 0;
@@ -22,6 +28,24 @@ alter table public.profiles add column if not exists lessons_today integer not n
 alter table public.profiles add column if not exists last_study_date date;
 alter table public.profiles add column if not exists lesson_attempts jsonb not null default '{}'::jsonb;
 alter table public.profiles add column if not exists app_settings jsonb not null default '{}'::jsonb;
+
+create unique index if not exists profiles_phone_number_unique
+  on public.profiles (phone_number)
+  where phone_number is not null;
+
+create or replace function public.is_phone_number_available(phone_number_to_check text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select not exists (
+    select 1
+    from public.profiles
+    where phone_number = phone_number_to_check
+  );
+$$;
 
 create table if not exists public.lesson_progress (
   user_id uuid not null references auth.users(id) on delete cascade,

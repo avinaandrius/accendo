@@ -87,17 +87,99 @@ function slug(text) {
 
 function buildTopicQuestions(topic, unitTitle, unitIndex, topicIndex) {
   const [id, title, detail, keyTerm, explanation] = topic
+  const unitConcepts = unitBlueprints.find((unit) => unit.title === unitTitle)?.topics || []
+  const neighborTopics = unitConcepts.filter((item) => item[0] !== id)
+  const matchingPairs = [
+    { left: keyTerm, right: explanation },
+    { left: title, right: detail },
+    { left: unitTitle, right: `The SIE content area that includes ${title.toLowerCase()}` },
+    { left: 'Exam approach', right: `Identify how ${keyTerm.toLowerCase()} affects the customer, product, market, or rule being tested` },
+  ]
+  const relatedDistractors = neighborTopics.slice(topicIndex % Math.max(neighborTopics.length, 1)).concat(neighborTopics).slice(0, 3)
+  const conceptDistractors = relatedDistractors.map((item) => item[4])
+  while (conceptDistractors.length < 3) {
+    conceptDistractors.push([
+      'It guarantees that an investor cannot lose money.',
+      'It applies only to bank deposit products, not securities.',
+      'It removes the need to consider customer objectives or risk.',
+    ][conceptDistractors.length])
+  }
   const base = [
-    { type: 'choice', prompt: `In ${title}, which statement is most accurate?`, options: [explanation, `${title} eliminates investment risk.`, `${title} only applies to bank savings accounts.`, `${title} guarantees a fixed return.`], answer: 0, explanation },
-    { type: 'fill', prompt: `The key SIE term for this lesson is ____.`, answer: keyTerm, alternatives: [keyTerm.toLowerCase()], explanation },
-    { type: 'match', prompt: `Match the concept to the correct description.`, options: [`${keyTerm} -> ${detail}`, `Guaranteed profit -> ${detail}`, `${keyTerm} -> a promise of no loss`, `Bank deposit -> ${explanation}`], answer: 0, explanation: `${keyTerm} connects to ${detail.toLowerCase()}.` },
-    { type: 'choice', prompt: `Why does ${title.toLowerCase()} matter for the SIE?`, options: ['It is a foundational concept used in customer and product questions.', 'It is only tested on principal-level exams.', 'It replaces all product risk questions.', 'It only matters after someone passes the Series 7.'], answer: 0, explanation: `The SIE repeatedly tests foundational understanding, including ${title.toLowerCase()}.` },
-    { type: 'fill', prompt: `${title} belongs primarily in the ____ unit.`, answer: unitTitle, alternatives: [unitTitle.toLowerCase()], explanation: `This topic is part of ${unitTitle}.` },
-    { type: 'choice', prompt: `A candidate sees "${keyTerm}" in a question. What should they do first?`, options: ['Identify the tested concept before choosing an answer.', 'Assume the answer is always the longest option.', 'Ignore customer facts.', 'Choose the answer with the highest return.'], answer: 0, explanation: 'SIE questions often reward recognizing the concept being tested before reacting to wording traps.' },
-    { type: 'match', prompt: `Which pairing is best for ${title}?`, options: [`${title} -> ${keyTerm}`, `${title} -> lottery-style speculation`, `${unitTitle} -> guaranteed returns`, `${keyTerm} -> unrelated tax filing`], answer: 0, explanation: `${title} is closely tied to ${keyTerm}.` },
-    { type: 'choice', prompt: `Which answer is a common exam trap for ${title.toLowerCase()}?`, options: ['Using absolute words like always, never, or guaranteed.', 'Reading the full question stem.', 'Comparing customer facts to the product.', 'Eliminating obviously wrong choices.'], answer: 0, explanation: 'The SIE often uses absolute language as a trap because securities concepts usually involve conditions and risk.' },
-    { type: 'fill', prompt: `A short definition to remember: ${keyTerm} relates to ____.`, answer: detail, alternatives: [detail.toLowerCase()], explanation: `${keyTerm} is tested through the idea of ${detail.toLowerCase()}.` },
-    { type: 'choice', prompt: `What is the best next study move after missing a ${title} question?`, options: ['Review the explanation and retry the concept in Practice Hub.', 'Skip the topic permanently.', 'Only memorize the letter choice.', 'Assume the topic is unimportant.'], answer: 0, explanation: 'Missed questions should become targeted review so the same concept appears again before exam day.' },
+    {
+      type: 'choice',
+      prompt: `Which statement best describes ${keyTerm} in the context of ${title}?`,
+      options: [explanation, ...conceptDistractors],
+      answer: 0,
+      explanation,
+      incorrectExplanations: [
+        'This choice points to a different SIE concept, so it does not answer this lesson objective.',
+        'This choice is too absolute. Securities questions rarely reward guarantees unless the product truly has one.',
+        'This choice ignores the actual role of the concept in the securities markets.',
+      ],
+    },
+    {
+      type: 'choice',
+      prompt: `Why does ${title.toLowerCase()} matter for an SIE candidate?`,
+      options: [
+        `It helps identify how ${detail.toLowerCase()} appears in exam questions.`,
+        'It is only tested after someone becomes a principal.',
+        'It guarantees the best investment choice for every customer.',
+        'It is unrelated to customer, product, market, or regulatory questions.',
+      ],
+      answer: 0,
+      explanation: `The SIE tests whether you understand the practical meaning of ${title.toLowerCase()}, especially ${detail.toLowerCase()}.`,
+      incorrectExplanations: [
+        'The SIE tests foundational concepts, not only principal-level rules.',
+        'No single concept guarantees the best investment for every customer.',
+        `${title} is part of the ${unitTitle} content area, so it is relevant to the exam.`,
+      ],
+    },
+    {
+      type: 'true_false',
+      prompt: `${title}: ${explanation}`,
+      answer: true,
+      explanation: `True. This is the core idea to remember for ${keyTerm.toLowerCase()}.`,
+    },
+    {
+      type: 'choice',
+      prompt: `A question stem mentions "${keyTerm}." What should you do first?`,
+      options: [
+        `Connect it to ${detail.toLowerCase()} before evaluating the answer choices.`,
+        'Pick the answer choice that promises the highest return.',
+        'Assume the question is asking about a bank deposit.',
+        'Ignore the customer or market facts in the stem.',
+      ],
+      answer: 0,
+      explanation: `Start by identifying the concept being tested. For ${keyTerm.toLowerCase()}, the anchor idea is ${detail.toLowerCase()}.`,
+      incorrectExplanations: [
+        'The SIE is not asking you to chase the highest return without context.',
+        'SIE securities questions are usually not about bank deposit products unless stated.',
+        'Customer and market facts often determine the correct answer.',
+      ],
+    },
+    {
+      type: 'matching',
+      prompt: `Match each ${title} concept to its best description.`,
+      pairs: matchingPairs,
+      explanation: `These pairings connect the lesson term, its practical meaning, and how it fits within ${unitTitle}.`,
+    },
+    {
+      type: 'choice',
+      prompt: `Which answer is the most likely exam trap when studying ${title.toLowerCase()}?`,
+      options: [
+        'Choosing an absolute answer that says risk is eliminated or returns are guaranteed.',
+        'Reading the full question stem before choosing.',
+        'Eliminating answer choices that describe unrelated concepts.',
+        'Using the lesson objective to identify what the question is testing.',
+      ],
+      answer: 0,
+      explanation: `For ${title.toLowerCase()}, be careful with absolute wording. Most SIE topics involve tradeoffs, rules, or risk.`,
+      incorrectExplanations: [
+        'Reading the whole stem is a good habit, not a trap.',
+        'Eliminating unrelated concepts is a useful test strategy.',
+        'Identifying the tested concept is exactly what strong candidates do.',
+      ],
+    },
   ]
 
   return base.map((question, questionIndex) => ({
@@ -155,4 +237,3 @@ function buildCurriculum() {
 
 export const curriculum = buildCurriculum()
 export const allLessons = curriculum.flatMap((unit) => unit.lessons)
-

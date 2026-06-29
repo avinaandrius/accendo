@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+const productionOrigin = 'https://accendo.io'
 
 function validateConfig() {
   if (!url || !publishableKey) {
@@ -26,6 +27,11 @@ function validateConfig() {
 
 export const supabaseConfigError = validateConfig()
 export const hasSupabaseConfig = !supabaseConfigError
+
+export function getAuthRedirectTo() {
+  if (typeof window === 'undefined') return `${productionOrigin}/auth/callback`
+  return `${window.location.origin}/auth/callback`
+}
 
 export const supabase = hasSupabaseConfig
   ? createClient(url, publishableKey, {

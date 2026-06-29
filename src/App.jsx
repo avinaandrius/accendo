@@ -3,6 +3,7 @@ import { normalizeProfile, starterProfile, useStoredProfile } from './data/profi
 import { Brand, BottomNavigation, Sidebar, Topbar } from './components/layout'
 import { hasSupabaseConfig, supabase } from './supabase'
 import AuthScreen from './pages/AuthScreen'
+import AuthCallback from './pages/AuthCallback'
 import Onboarding from './pages/Onboarding'
 
 const LearnPage = lazy(() => import('./pages/LearnPage'))
@@ -33,6 +34,7 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [authReady, setAuthReady] = useState(!hasSupabaseConfig)
   const [cloudReady, setCloudReady] = useState(!hasSupabaseConfig)
+  const [cloudError, setCloudError] = useState('')
   const [demoMode, setDemoMode] = useState(false)
   const [page, setPage] = useState('home')
   const [lesson, setLesson] = useState(null)
@@ -57,10 +59,13 @@ export default function App() {
     if (!supabase) return
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
+      setCloudReady(!data.session)
       setAuthReady(true)
     })
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession)
+      setCloudReady(!nextSession)
+      setCloudError('')
       setAuthReady(true)
     })
     return () => data.subscription.unsubscribe()
@@ -69,17 +74,25 @@ export default function App() {
   useEffect(() => {
     if (!session || !supabase) return
     async function loadCloudProfile() {
-      const [{ data: cloudProfile }, { data: progress }, { allLessons }] = await Promise.all([
+      setCloudReady(false)
+      setCloudError('')
+      const [{ data: cloudProfile, error: profileError }, { data: progress, error: progressError }, { allLessons }] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle(),
         supabase.from('lesson_progress').select('lesson_id, score').eq('user_id', session.user.id),
         import('./data/curriculum'),
       ])
+      if (profileError || progressError) {
+        setCloudError(profileError?.message || progressError?.message || 'Accendo could not load your saved progress.')
+        setCloudReady(true)
+        return
+      }
       if (cloudProfile) {
         const appSettings = cloudProfile.app_settings || {}
         setProfile(normalizeProfile({
           name: cloudProfile.name,
           username: cloudProfile.username || '',
           email: cloudProfile.email || session.user.email,
+          phoneNumber: cloudProfile.phone_number || session.user.user_metadata?.phone_number || '',
           streak: cloudProfile.streak,
           xp: cloudProfile.xp,
           dailyGoal: cloudProfile.daily_goal || 1,
@@ -115,17 +128,20 @@ export default function App() {
           ...starterProfile,
           name: session.user.user_metadata?.name || 'SIE Candidate',
           email: session.user.email,
+          phoneNumber: session.user.user_metadata?.phone_number || '',
           username: session.user.email?.split('@')[0] || '',
           xp: 0,
           streak: 0,
           completed: [],
         }
         setProfile(newProfile)
-        await supabase.from('profiles').insert({
+        const { error: profileInsertError } = await supabase.from('profiles').insert({
           id: session.user.id,
           name: newProfile.name,
+          full_name: newProfile.name,
           username: newProfile.username,
           email: newProfile.email,
+          phone_number: newProfile.phoneNumber || null,
           daily_goal: newProfile.dailyGoal,
           weekly_goal: newProfile.weeklyGoal,
           app_settings: {
@@ -142,20 +158,74 @@ export default function App() {
             aiSettings: newProfile.aiSettings,
           },
         })
+        if (profileInsertError) {
+          if (profileInsertError.code === '23505' && profileInsertError.message?.includes('phone')) {
+            localStorage.setItem('accendo-auth-message', 'An account already exists with this phone number. Please sign in instead.')
+            await supabase.auth.signOut()
+            setSession(null)
+            setCloudReady(true)
+            return
+          }
+          throw profileInsertError
+        }
       }
       setCloudReady(true)
     }
-    loadCloudProfile()
+    loadCloudProfile().catch((error) => {
+      setCloudError(error.message || 'Accendo could not load your saved progress.')
+      setCloudReady(true)
+    })
   }, [session, setProfile])
+
+  async function persistProfileToCloud(nextProfile) {
+    if (!session || !supabase) return
+    await supabase.from('profiles').upsert({
+      id: session.user.id,
+      name: nextProfile.name,
+      full_name: nextProfile.name,
+      username: nextProfile.username || null,
+      email: nextProfile.email,
+      phone_number: nextProfile.phoneNumber || session.user.user_metadata?.phone_number || null,
+      xp: nextProfile.xp,
+      streak: nextProfile.streak,
+      daily_goal: nextProfile.dailyGoal,
+      weekly_goal: nextProfile.weeklyGoal,
+      exam_date: nextProfile.examDate || null,
+      onboarded: nextProfile.onboarded,
+      total_questions: nextProfile.totalQuestions,
+      correct_answers: nextProfile.correctAnswers,
+      mistakes: nextProfile.mistakes,
+      lessons_today: nextProfile.lessonsToday,
+      last_study_date: nextProfile.lastStudyDate || null,
+      lesson_attempts: nextProfile.lessonAttempts,
+      app_settings: {
+        currentExam: nextProfile.currentExam,
+        preferredStudyTime: nextProfile.preferredStudyTime,
+        difficultyPreference: nextProfile.difficultyPreference,
+        dailyReminderTime: nextProfile.dailyReminderTime,
+        theme: nextProfile.theme,
+        usernameLastChangedAt: nextProfile.usernameLastChangedAt,
+        notificationSettings: nextProfile.notificationSettings,
+        privacySettings: nextProfile.privacySettings,
+        learningSettings: nextProfile.learningSettings,
+        accessibilitySettings: nextProfile.accessibilitySettings,
+        aiSettings: nextProfile.aiSettings,
+      },
+      updated_at: new Date().toISOString(),
+    })
+  }
 
   useEffect(() => {
     if (!session || !supabase) return
+    if (!cloudReady || cloudError) return
     const timer = setTimeout(() => {
       supabase.from('profiles').upsert({
         id: session.user.id,
         name: profile.name,
+        full_name: profile.name,
         username: profile.username || null,
         email: profile.email,
+        phone_number: profile.phoneNumber || session.user.user_metadata?.phone_number || null,
         xp: profile.xp,
         streak: profile.streak,
         daily_goal: profile.dailyGoal,
@@ -185,7 +255,7 @@ export default function App() {
       })
     }, 500)
     return () => clearTimeout(timer)
-  }, [profile, session])
+  }, [profile, session, cloudReady, cloudError])
 
   function completeLesson(result) {
     const { lesson: completedLesson, correct, total, wrongAnswers, reviewedKeys } = result
@@ -193,7 +263,7 @@ export default function App() {
     const score = Math.round((correct / total) * 100)
     const passedGate = !completedLesson.isCheckIn || score >= (completedLesson.passingScore || 80)
     const wrongKeys = new Set(wrongAnswers.map((item) => item.key))
-    setProfile((current) => {
+    function buildNextProfile(current) {
       const today = todayKey()
       const studiedToday = current.lastStudyDate === today
       const yesterday = new Date()
@@ -242,7 +312,9 @@ export default function App() {
         lessonsToday: nextLessonsToday,
         lastStudyDate: today,
       }
-    })
+    }
+    const nextProfile = buildNextProfile(profile)
+    setProfile(nextProfile)
     if (session && supabase && !reviewMode) {
       supabase.from('lesson_progress').upsert({
         user_id: session.user.id,
@@ -251,6 +323,13 @@ export default function App() {
         completed_at: new Date().toISOString(),
       })
     }
+    persistProfileToCloud(nextProfile)
+  }
+
+  function completeOnboarding(details) {
+    const nextProfile = { ...profile, ...details, onboarded: true }
+    setProfile(nextProfile)
+    persistProfileToCloud(nextProfile)
   }
 
   async function signOut() {
@@ -259,11 +338,21 @@ export default function App() {
     setPage('home')
   }
 
+  if (window.location.pathname === '/auth/callback') return <AuthCallback onSession={setSession} />
   if (!authReady) return <PageLoader />
   if (!session && !demoMode) return <AuthScreen onDemo={() => setDemoMode(true)} />
   if (session && !cloudReady) return <PageLoader label="Preparing your study plan…" />
+  if (cloudError) {
+    return (
+      <main className="app-loading">
+        <Brand />
+        <span>Accendo could not load your saved progress. {cloudError}</span>
+        <button className="primary-button" onClick={() => window.location.reload()}>Try again</button>
+      </main>
+    )
+  }
   if (!profile.onboarded) {
-    return <Onboarding profile={profile} onComplete={(details) => setProfile((current) => ({ ...current, ...details }))} />
+    return <Onboarding profile={profile} onComplete={completeOnboarding} />
   }
 
   if (lesson) {
@@ -294,3 +383,4 @@ export default function App() {
     </div>
   )
 }
+

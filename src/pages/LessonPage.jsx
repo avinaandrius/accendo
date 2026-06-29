@@ -2,54 +2,161 @@ import { useMemo, useState } from 'react'
 import { CalendarDays, Check, ChevronRight, Flame, Gauge, Star, Target, Trophy, X, Zap } from 'lucide-react'
 import { allLessons, curriculum } from '../data/curriculum'
 
+function shuffleArray(items) {
+  return items
+    .map((item) => ({ item, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ item }) => item)
+}
+
+function prepareQuestion(question, lessonId, index) {
+  const key = question.key || `${lessonId}-${index}`
+  if (question.type === 'choice') {
+    const shuffledOptions = shuffleArray(question.options.map((text, originalIndex) => ({ text, originalIndex })))
+    return {
+      ...question,
+      key,
+      shuffledOptions,
+      shuffledAnswer: shuffledOptions.findIndex((option) => option.originalIndex === question.answer),
+    }
+  }
+  if (question.type === 'true_false') {
+    const options = [
+      { text: 'True', value: true },
+      { text: 'False', value: false },
+    ]
+    return {
+      ...question,
+      key,
+      shuffledOptions: options,
+      shuffledAnswer: options.findIndex((option) => option.value === question.answer),
+    }
+  }
+  if (question.type === 'matching') {
+    const pairs = question.pairs.map((pair, pairIndex) => ({ ...pair, id: `${key}-pair-${pairIndex}` }))
+    return {
+      ...question,
+      key,
+      pairs,
+      shuffledRight: shuffleArray(pairs.map((pair) => ({ id: pair.id, text: pair.right }))),
+    }
+  }
+  return { ...question, key }
+}
+
+function MatchingQuestion({ question, checked, matches, selectedLeft, setSelectedLeft, setMatches }) {
+  function chooseLeft(pairId) {
+    if (checked) return
+    setSelectedLeft(selectedLeft === pairId ? null : pairId)
+  }
+
+  function chooseRight(rightId) {
+    if (checked || !selectedLeft) return
+    setMatches((current) => {
+      const withoutRight = Object.fromEntries(Object.entries(current).filter(([, value]) => value !== rightId))
+      return { ...withoutRight, [selectedLeft]: rightId }
+    })
+    setSelectedLeft(null)
+  }
+
+  return (
+    <div className="matching-board">
+      <div className="matching-column">
+        {question.pairs.map((pair, index) => {
+          const matchedRight = matches[pair.id]
+          const isCorrect = checked && matchedRight === pair.id
+          const isWrong = checked && matchedRight && matchedRight !== pair.id
+          return (
+            <button
+              key={pair.id}
+              className={`${selectedLeft === pair.id ? 'selected' : ''} ${matchedRight ? 'matched' : ''} ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}`}
+              onClick={() => chooseLeft(pair.id)}
+              type="button"
+            >
+              <span>{index + 1}</span>
+              {pair.left}
+            </button>
+          )
+        })}
+      </div>
+      <div className="matching-column">
+        {question.shuffledRight.map((item, index) => {
+          const usedBy = Object.entries(matches).find(([, rightId]) => rightId === item.id)?.[0]
+          const isCorrect = checked && usedBy === item.id
+          const isWrong = checked && usedBy && usedBy !== item.id
+          return (
+            <button
+              key={item.id}
+              className={`${usedBy ? 'matched' : ''} ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}`}
+              disabled={checked || !selectedLeft}
+              onClick={() => chooseRight(item.id)}
+              type="button"
+            >
+              <span>{String.fromCharCode(65 + index)}</span>
+              {item.text}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function LessonPage({ lesson, onExit, onComplete, reviewMode = false }) {
-  const questions = lesson.questions.length
+  const rawQuestions = lesson.questions.length
     ? lesson.questions
     : curriculum[0].lessons[0].questions.map((q, index) => ({
         ...q,
         prompt: index === 0 ? `Practice check: ${q.prompt}` : q.prompt,
       }))
+  const questions = useMemo(() => rawQuestions.map((question, index) => prepareQuestion(question, lesson.id, index)), [lesson.id, rawQuestions])
   const [step, setStep] = useState(0)
   const [selected, setSelected] = useState(null)
-  const [textAnswer, setTextAnswer] = useState('')
+  const [matches, setMatches] = useState({})
+  const [selectedLeft, setSelectedLeft] = useState(null)
   const [checked, setChecked] = useState(false)
-  const [correctCount, setCorrectCount] = useState(0)
   const [finished, setFinished] = useState(false)
-  const [wrongAnswers, setWrongAnswers] = useState([])
   const [answerHistory, setAnswerHistory] = useState([])
   const question = questions[step]
   const questionKey = question.key || `${lesson.id}-${step}`
 
+  const matchingComplete = question.type === 'matching' && Object.keys(matches).length === question.pairs.length
   const isCorrect = useMemo(() => {
     if (!checked) return false
-    if (question.type === 'choice' || question.type === 'match') return selected === question.answer
-    const submitted = textAnswer.trim().toLowerCase()
-    return [question.answer, ...(question.alternatives || [])].some(
-      (answer) => answer.toLowerCase() === submitted,
-    )
-  }, [checked, question, selected, textAnswer])
+    if (question.type === 'matching') return question.pairs.every((pair) => matches[pair.id] === pair.id)
+    return selected === question.shuffledAnswer
+  }, [checked, question, selected, matches])
+
+  function formatMatchingAnswer(questionToFormat, answerMatches = matches) {
+    return questionToFormat.pairs
+      .map((pair) => {
+        const selectedRightId = answerMatches[pair.id]
+        const selectedRight = questionToFormat.pairs.find((item) => item.id === selectedRightId)?.right || 'Not matched'
+        return `${pair.left} → ${selectedRight}`
+      })
+      .join('; ')
+  }
 
   function checkAnswer() {
-    if (((question.type === 'choice' || question.type === 'match') && selected === null) || (question.type === 'fill' && !textAnswer.trim())) return
+    if ((question.type === 'matching' && !matchingComplete) || (question.type !== 'matching' && selected === null)) return
+    const correct = question.type === 'matching'
+      ? question.pairs.every((pair) => matches[pair.id] === pair.id)
+      : selected === question.shuffledAnswer
     setChecked(true)
-    const correct =
-      ((question.type === 'choice' || question.type === 'match') && selected === question.answer) ||
-      (question.type === 'fill' &&
-        [question.answer, ...(question.alternatives || [])].some(
-          (answer) => answer.toLowerCase() === textAnswer.trim().toLowerCase(),
-        ))
+    const originalSelectedIndex = question.type === 'choice' ? question.shuffledOptions[selected]?.originalIndex : null
     const answerRecord = {
       ...question,
       key: questionKey,
       lessonId: question.lessonId || lesson.id,
       correct,
-      submittedAnswer: question.type === 'choice' || question.type === 'match' ? question.options[selected] : textAnswer.trim(),
-      correctAnswer: question.type === 'choice' || question.type === 'match' ? question.options[question.answer] : question.answer,
-    }
-    if (correct) {
-      setCorrectCount((value) => value + 1)
-    } else {
-      setWrongAnswers((current) => [...current, answerRecord])
+      submittedAnswer: question.type === 'matching'
+        ? formatMatchingAnswer(question)
+        : question.shuffledOptions[selected]?.text,
+      correctAnswer: question.type === 'matching'
+        ? question.pairs.map((pair) => `${pair.left} → ${pair.right}`).join('; ')
+        : question.shuffledOptions[question.shuffledAnswer]?.text,
+      selectedOriginalIndex: originalSelectedIndex,
+      submittedMatches: { ...matches },
     }
     setAnswerHistory((current) => [...current, answerRecord])
   }
@@ -70,8 +177,21 @@ export default function LessonPage({ lesson, onExit, onComplete, reviewMode = fa
     }
     setStep((value) => value + 1)
     setSelected(null)
-    setTextAnswer('')
+    setMatches({})
+    setSelectedLeft(null)
     setChecked(false)
+  }
+
+  function questionTypeLabel() {
+    if (question.type === 'choice') return 'Multiple choice'
+    if (question.type === 'true_false') return 'True / false'
+    return 'Matching'
+  }
+
+  function eyebrowLabel() {
+    if (question.type === 'choice') return 'CHOOSE THE BEST ANSWER'
+    if (question.type === 'true_false') return 'TRUE OR FALSE'
+    return 'MATCH THE CONCEPTS'
   }
 
   if (finished) {
@@ -130,49 +250,54 @@ export default function LessonPage({ lesson, onExit, onComplete, reviewMode = fa
       <section className="question-card">
         <div className="question-meta">
           <span>{reviewMode ? 'Mistake review' : lesson.title}</span>
-          <span>{question.type === 'choice' ? 'Multiple choice' : question.type === 'match' ? 'Matching' : 'Type the answer'}</span>
+          <span>{questionTypeLabel()}</span>
         </div>
-        <span className="eyebrow">{question.type === 'choice' ? 'CHOOSE THE BEST ANSWER' : question.type === 'match' ? 'MATCH THE PAIR' : 'FILL IN THE BLANK'}</span>
+        <span className="eyebrow">{eyebrowLabel()}</span>
         <h1>{question.prompt}</h1>
-        {question.type === 'choice' || question.type === 'match' ? (
+        {question.type === 'matching' ? (
+          <MatchingQuestion
+            question={question}
+            checked={checked}
+            matches={matches}
+            selectedLeft={selectedLeft}
+            setSelectedLeft={setSelectedLeft}
+            setMatches={setMatches}
+          />
+        ) : (
           <div className="options">
-            {question.options.map((option, index) => (
+            {question.shuffledOptions.map((option, index) => (
               <button
-                key={option}
+                key={`${questionKey}-${option.text}`}
                 disabled={checked}
                 className={`${selected === index ? 'selected' : ''} ${
-                  checked && index === question.answer ? 'correct' : ''
-                } ${checked && selected === index && index !== question.answer ? 'wrong' : ''}`}
+                  checked && index === question.shuffledAnswer ? 'correct' : ''
+                } ${checked && selected === index && index !== question.shuffledAnswer ? 'wrong' : ''}`}
                 onClick={() => setSelected(index)}
               >
                 <span>{String.fromCharCode(65 + index)}</span>
-                {option}
-                {checked && index === question.answer && <Check size={19} />}
+                {option.text}
+                {checked && index === question.shuffledAnswer && <Check size={19} />}
               </button>
             ))}
           </div>
-        ) : (
-          <input
-            className={`fill-input ${checked ? (isCorrect ? 'correct' : 'wrong') : ''}`}
-            value={textAnswer}
-            disabled={checked}
-            onChange={(event) => setTextAnswer(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && !checked && checkAnswer()}
-            placeholder="Type your answer"
-            autoFocus
-          />
         )}
         {checked && (
           <div className={`feedback ${isCorrect ? 'feedback-correct' : 'feedback-wrong'}`}>
             <div>{isCorrect ? <Check size={20} /> : <X size={20} />}</div>
-            <p><strong>{isCorrect ? 'Exactly right.' : `Correct answer: ${question.type === 'choice' || question.type === 'match' ? question.options[question.answer] : question.answer}`}</strong>{question.explanation}</p>
+            <p>
+              <strong>{isCorrect ? 'Exactly right.' : `Correct answer: ${question.type === 'matching' ? question.pairs.map((pair) => `${pair.left} → ${pair.right}`).join('; ') : question.shuffledOptions[question.shuffledAnswer]?.text}`}</strong>
+              {question.explanation}
+              {!isCorrect && question.type === 'choice' && question.incorrectExplanations?.[question.shuffledOptions[selected]?.originalIndex - 1] && (
+                <em>{question.incorrectExplanations[question.shuffledOptions[selected].originalIndex - 1]}</em>
+              )}
+            </p>
           </div>
         )}
         <div className="question-actions">
           <button className="text-button" onClick={onExit}>Exit lesson</button>
           <button
             className="primary-button"
-            disabled={!checked && (question.type === 'fill' ? !textAnswer.trim() : selected === null)}
+            disabled={!checked && (question.type === 'matching' ? !matchingComplete : selected === null)}
             onClick={checked ? nextQuestion : checkAnswer}
           >
             {checked ? (step === questions.length - 1 ? 'Finish lesson' : 'Next question') : 'Check answer'}
@@ -183,5 +308,3 @@ export default function LessonPage({ lesson, onExit, onComplete, reviewMode = fa
     </main>
   )
 }
-
-

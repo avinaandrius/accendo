@@ -4,6 +4,7 @@ export const starterProfile = {
   name: 'Andrius',
   username: 'andrius_sie',
   email: 'andrius@example.com',
+  phoneNumber: '',
   streak: 4,
   xp: 140,
   weeklyGoal: 5,
