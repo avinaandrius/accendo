@@ -315,17 +315,21 @@ h1, h2, h3 { font-family: 'Manrope', sans-serif; margin-top: 0; letter-spacing: 
 
 .continue-card {
   display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 20px; padding: 24px 25px;
-  border-radius: var(--radius-card); background: #3a3834; color: #fffaf1; box-shadow: var(--shadow-card); margin-bottom: 58px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+  border-radius: var(--radius-card);
+  background: linear-gradient(135deg, var(--color-surface), color-mix(in srgb, var(--color-primary) 6%, var(--color-surface)));
+  color: var(--color-text);
+  box-shadow: var(--shadow-soft); margin-bottom: 58px;
   overflow: hidden; position: relative;
 }
-.continue-card::after { content: ''; width: 160px; height: 160px; border-radius: 50%; border: 35px solid rgb(255 255 255 / 3%); position: absolute; right: 130px; top: -72px; }
-.continue-icon { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 15px; background: rgb(255 255 255 / 10%); color: #ff9a82; }
+.continue-card::after { content: ''; width: 160px; height: 160px; border-radius: 50%; border: 35px solid color-mix(in srgb, var(--color-primary) 7%, transparent); position: absolute; right: 130px; top: -72px; }
+.continue-icon { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 15px; background: #fff1eb; color: var(--color-primary); border: 1px solid #f1d8cd; }
 .continue-copy { position: relative; z-index: 1; }
-.continue-copy .eyebrow { color: #ffb19f; margin-bottom: 5px; }
+.continue-copy .eyebrow { color: color-mix(in srgb, var(--color-primary) 82%, var(--color-text-muted)); margin-bottom: 5px; }
 .continue-copy h2 { font-size: 20px; margin: 0 0 3px; }
-.continue-copy p { margin: 0; color: #d6d0c5; font-size: 12px; }
+.continue-copy p { margin: 0; color: var(--color-text-muted); font-size: 12px; }
 .continue-action { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.continue-action > span { color: #f0cd5f; display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; }
+.continue-action > span { color: var(--color-warning); display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; }
 .continue-action button, .primary-button {
   border: 0; border-radius: var(--radius-control); color: white; background: var(--color-primary); min-height: 42px; padding: 0 18px;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 800; cursor: pointer;
@@ -450,9 +454,13 @@ h1, h2, h3 { font-family: 'Manrope', sans-serif; margin-top: 0; letter-spacing: 
 .metric-card.warm svg { color: var(--orange); fill: #ffd5ca; }
 .metric-card.purple svg { color: var(--purple); fill: #ded6ff; }
 .metric-card.green svg { color: var(--green); }
-.metric-card.readiness-metric { background: #3a3834; color: #fffaf1; border-color: #3a3834; }
-.metric-card.readiness-metric svg { color: #ff9a82; }
-.metric-card.readiness-metric > span, .metric-card.readiness-metric small { color: #d6d0c5; }
+.metric-card.readiness-metric {
+  background: linear-gradient(135deg, var(--color-surface), color-mix(in srgb, var(--color-success) 6%, var(--color-surface)));
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-success) 24%, var(--color-border));
+}
+.metric-card.readiness-metric svg { color: var(--color-primary); }
+.metric-card.readiness-metric > span, .metric-card.readiness-metric small { color: var(--color-text-muted); }
 .readiness-panel { margin-top: 20px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: var(--radius-card); padding: 28px; display: grid; grid-template-columns: 1fr 1.1fr; gap: 32px; align-items: center; box-shadow: 0 8px 24px rgb(54 47 39 / 5%); }
 .readiness-panel h2 { font-size: 22px; margin: 0 0 7px; }
 .readiness-panel p { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 0; }
@@ -547,6 +555,50 @@ h1, h2, h3 { font-family: 'Manrope', sans-serif; margin-top: 0; letter-spacing: 
 .retake-row strong { color: var(--color-text); font-size: 13px; }
 .retake-row small, .empty-state { color: var(--color-text-muted); font-size: 12px; line-height: 1.45; }
 .empty-state { margin: 0; }
+
+:root[data-theme='dark'] .continue-card {
+  border-color: #3a3834;
+  background: #3a3834;
+  color: #fffaf1;
+  box-shadow: var(--shadow-card);
+}
+
+:root[data-theme='dark'] .continue-card::after {
+  border-color: rgb(255 255 255 / 3%);
+}
+
+:root[data-theme='dark'] .continue-icon {
+  background: rgb(255 255 255 / 10%);
+  color: #ff9a82;
+  border-color: transparent;
+}
+
+:root[data-theme='dark'] .continue-copy .eyebrow {
+  color: #ffb19f;
+}
+
+:root[data-theme='dark'] .continue-copy p {
+  color: #d6d0c5;
+}
+
+:root[data-theme='dark'] .continue-action > span {
+  color: #f0cd5f;
+}
+
+:root[data-theme='dark'] .metric-card.readiness-metric {
+  background: #3a3834;
+  color: #fffaf1;
+  border-color: #3a3834;
+}
+
+:root[data-theme='dark'] .metric-card.readiness-metric svg {
+  color: #ff9a82;
+}
+
+:root[data-theme='dark'] .metric-card.readiness-metric > span,
+:root[data-theme='dark'] .metric-card.readiness-metric small {
+  color: #d6d0c5;
+}
 
 :root[data-theme='dark'] .practice-page {
   background: transparent;
